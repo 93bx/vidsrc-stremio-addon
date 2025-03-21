@@ -1,0 +1,26 @@
+{
+  "name": "vidsrc-stremio-addon",
+  "version": "1.0.0",
+  "description": "Stremio stream provider addon using VidSrc API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "npm start -- --install",
+    "postinstall": "npx puppeteer browsers install chrome"
+  },
+  "dependencies": {
+    "axios": "^1.8.3",
+    "node-cache": "^5.1.2",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "stremio-addon-sdk": "^1.1.0"
+  },
+  "keywords": [
+    "stremio",
+    "addon",
+    "vidsrc",
+    "streaming"
+  ],
+  "author": "",
+  "license": "ISC"
+}
