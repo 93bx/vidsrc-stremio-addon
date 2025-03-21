@@ -149,4 +149,5 @@ manifest.defineStreamHandler(async ({type, id}) => {
     }
 });
 
-serveHTTP(manifest.getInterface(), {port: PORT})
+serveHTTP(manifest.getInterface(), {port: PORT, hostname: "0.0.0.0"})
+console.log(`Addon running on port ${PORT}`);
