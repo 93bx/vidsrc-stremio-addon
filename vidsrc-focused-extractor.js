@@ -3,6 +3,7 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const AnonymizeUAPlugin = require('puppeteer-extra-plugin-anonymize-ua');
 const UserPreferencesPlugin = require('puppeteer-extra-plugin-user-preferences');
 const undetected = require('undetected-puppeteer');
+const { solveTurnstile } = require('./capsolver');
 
 puppeteer.use(StealthPlugin());
 puppeteer.use(AnonymizeUAPlugin());
@@ -26,20 +27,21 @@ async function extractWithNormalPuppeteer(url) {
   console.log(`Extracting stream from: ${url}`);
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-web-security',
       "--disable-dev-shm-usage",
       '--disable-features=IsolateOrigins,site-per-process',
-      "--disable-gpu",
       "--disable-software-rasterizer",
       '--enable-popup-blocking'
     ]
   });
   try {
     return await extractStream(browser, url);
+  } catch (e) {
+      console.error(e)
   } finally {
     await browser.close();
   }
@@ -61,7 +63,10 @@ async function extractWithUndetectedPuppeteer(url) {
 
   try {
     return await extractStream(browser, url);
-  } finally {
+  } catch (e) {
+      console.error(e)
+  }
+  finally {
     await browser.close();
   }
 }
@@ -103,9 +108,9 @@ async function extractStream(browser, url) {
         // block the request
         request.abort();
       } else if (url.includes('.m3u8')) {
-        console.log('M3U8 URL detected in request:', url.slice(url.length - 12).replace('/', ''));
-        // Categorize the stream URLs
-        streamUrls[url.slice((url.length - 12)).replace('/', '')] = url;
+          console.log('M3U8 URL detected in request:', url.slice(url.length - 12).replace('/', ''));
+          // Categorize the stream URLs
+          streamUrls[url.slice((url.length - 12)).replace('/', '')] = url;
       } else {
         // allow the request
         request.continue();
@@ -115,6 +120,7 @@ async function extractStream(browser, url) {
     // Navigate to the VidSrc page
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000});
     console.log('Main page loaded');
+
 
     // Wait for initial iframe to load
     const iframeSelector = '#player_iframe';
@@ -129,6 +135,36 @@ async function extractStream(browser, url) {
 
     await page.goto(iframeSrc);
     console.log('Player page loaded');
+
+    // Detect Turnstile
+    const hasTurnstile = await page.$('.cf-turnstile');
+    if (hasTurnstile) {
+        console.log('🛡 Turnstile CAPTCHA detected.');
+        const sitekey = await page.$eval('.cf-turnstile', el => el.getAttribute('data-sitekey'));
+        const token = await solveTurnstile(page.url(), sitekey);
+
+        // Inject solved token into page
+        await page.evaluate((token) => {
+            const input = document.querySelector('[id$="_response"]');
+            if (input) input.value = token;
+        }, token);
+
+        console.log('📨 Submitting CAPTCHA token...');
+        await page.evaluate((token) => {
+            const input = document.querySelector('[id$="_response"]');
+            if (input) input.value = token;
+            const form = document.querySelector('form');
+            if (form) form.submit();
+        }, token);
+
+        // ✅ Then wait manually for the page DOM to change
+        console.log('⌛ Waiting for page to change after CAPTCHA...');
+        setTimeout('', 5000)
+
+        console.log('✅ CAPTCHA passed.');
+    } else {
+        console.log('✅ No Turnstile found, proceeding.');
+    }
 
 
     try {
@@ -149,7 +185,7 @@ async function extractStream(browser, url) {
         await page.waitForRequest(request => request.url().includes('.m3u8'), {timeout: 5000}).catch(() => {})
       }
     } catch (e) {
-      console.log('Error finding or clicking the play button:', e.message);
+        console.log('Error finding or clicking the play button:', e.message);
     }
 
     // Check if we found any stream URLs
@@ -162,18 +198,18 @@ async function extractStream(browser, url) {
 }
 
 async function extractVidSrcStream(url) {
-  try {
-    console.log('Normal Puppeteer')
-    return await extractWithNormalPuppeteer(url);
-  } catch (e1) {
-    console.error('Normal puppeteer failed, switching to undetected-puppeteer:', e1.message);
     try {
-      return await extractWithUndetectedPuppeteer(url);
-    } catch (e2) {
-      console.error('Undetected puppeteer failed too:', e2.message);
-      throw new Error('Extraction failed with both methods');
+        console.log('Normal Puppeteer')
+        return await extractWithNormalPuppeteer(url);
+    } catch (e1) {
+        console.error('Normal puppeteer failed, switching to undetected-puppeteer:', e1.message);
+        try {
+            return await extractWithUndetectedPuppeteer(url)
+        } catch (e2) {
+            console.error('Undetected puppeteer failed too:', e2.message);
+            throw new Error('Extraction failed with both methods');
+        }
     }
-  }
 }
 
 module.exports = { extractVidSrcStream: extractVidSrcStream };
