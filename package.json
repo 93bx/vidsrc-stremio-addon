@@ -12,8 +12,11 @@
     "axios": "^1.8.3",
     "node-cache": "^5.1.2",
     "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-anonymize-ua": "^2.4.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "stremio-addon-sdk": "^1.1.0"
+    "puppeteer-extra-plugin-user-preferences": "^2.4.1",
+    "stremio-addon-sdk": "^1.1.0",
+    "undetected-puppeteer": "^1.0.1"
   },
   "keywords": [
     "stremio",

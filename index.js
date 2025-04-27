@@ -1,7 +1,7 @@
 const { addonBuilder, serveHTTP, publishToCentral }  = require('stremio-addon-sdk');
 const NodeCache = require('node-cache');
 const axios = require('axios')
-const { extractVidSrcStream } = require('./vidsrc-focused-extractor');
+const { extractVidSrcStream0 } = require('./vidsrc-focused-extractor');
 const PORT = process.env.PORT || 7000; // Use BeamUp's port
 
 const manifest = new addonBuilder({
@@ -35,7 +35,7 @@ async function fetchOmdbDetails(imdbId){
 // Main extraction function
 async function extractStreamUrl(url) {
     try {
-        return await extractVidSrcStream(url);
+        return await extractVidSrcStream0(url);
     } catch (error) {
         console.log('Puppeteer extraction failed ', error.message);
     }
