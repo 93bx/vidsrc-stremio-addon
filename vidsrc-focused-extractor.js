@@ -27,7 +27,7 @@ async function extractWithNormalPuppeteer(url) {
   console.log(`Extracting stream from: ${url}`);
 
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -38,13 +38,13 @@ async function extractWithNormalPuppeteer(url) {
       '--enable-popup-blocking'
     ]
   });
-  try {
-    return await extractStream(browser, url);
-  } catch (e) {
-      console.error(e)
-  } finally {
-    await browser.close();
-  }
+    try {
+        return await extractStream(browser, url);
+    } catch (error) {
+        throw new Error(error)
+    } finally {
+        await browser.close();
+    }
 }
 
 async function extractWithUndetectedPuppeteer(url) {
@@ -64,7 +64,7 @@ async function extractWithUndetectedPuppeteer(url) {
   try {
     return await extractStream(browser, url);
   } catch (e) {
-      console.error(e)
+      throw new Error(e)
   }
   finally {
     await browser.close();
@@ -143,25 +143,21 @@ async function extractStream(browser, url) {
         const sitekey = await page.$eval('.cf-turnstile', el => el.getAttribute('data-sitekey'));
         const token = await solveTurnstile(page.url(), sitekey);
 
-        // Inject solved token into page
-        await page.evaluate((token) => {
-            const input = document.querySelector('[id$="_response"]');
-            if (input) input.value = token;
-        }, token);
-
         console.log('📨 Submitting CAPTCHA token...');
         await page.evaluate((token) => {
             const input = document.querySelector('[id$="_response"]');
-            if (input) input.value = token;
-            const form = document.querySelector('form');
-            if (form) form.submit();
+            if (input) {
+                input.value = token;
+                if (window.cftCallback && typeof window.cftCallback === 'function') {
+                    window.cftCallback(token);
+                }
+            }
         }, token);
 
-        // ✅ Then wait manually for the page DOM to change
         console.log('⌛ Waiting for page to change after CAPTCHA...');
-        setTimeout('', 5000)
-
+        await new Promise(resolve => setTimeout(resolve, 5000));
         console.log('✅ CAPTCHA passed.');
+
     } else {
         console.log('✅ No Turnstile found, proceeding.');
     }
@@ -174,11 +170,8 @@ async function extractStream(browser, url) {
       console.log('Clicked play button');
       await page.waitForSelector('iframe', {timeout: 10000});
       console.log('second iframe found');
-      const iframeSrc2 = await page.evaluate(sel => {
-        const iframe = document.querySelector(sel);
-        return iframe ? iframe.src : null;
-      }, iframeSelector);
-      await page.goto(iframeSrc2);
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
       // Wait for stream URLs to appear in network requests
       if (streamUrls.isEmpty) {
         console.log('Waiting for stream URLs to appear in network requests...');
