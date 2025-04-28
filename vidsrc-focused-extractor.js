@@ -111,6 +111,7 @@ async function extractStream(browser, url) {
           console.log('M3U8 URL detected in request:', url.slice(url.length - 12).replace('/', ''));
           // Categorize the stream URLs
           streamUrls[url.slice((url.length - 12)).replace('/', '')] = url;
+          browser.close();
       } else {
         // allow the request
         request.continue();
